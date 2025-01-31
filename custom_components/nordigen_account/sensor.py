@@ -7,6 +7,7 @@ from homeassistant.helpers.entity import DeviceInfo
 
 from .const import DOMAIN
 from .coordinator import NordigenDataUpdateCoordinator
+from .nordigen_wrapper import NordigenAPIError
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -14,22 +15,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
     """Set up Nordigen sensors from a config entry."""
     coordinator: NordigenDataUpdateCoordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
 
-    # The coordinator.data will be updated list of BankAccount objects
-    # each time coordinator refreshes.
     new_sensors = []
 
-    # We won't know all sensors until the first refresh, so let's set up a listener:
     @coordinator.async_add_listener
     def _schedule_add_entities():
-        # Each refresh, we check for new accounts or new balances
         entities = []
         existing_entity_ids = {entity.unique_id for entity in new_sensors}
 
         for account in coordinator.data:
-            # "account_id" from the library
-            acct_id = account._account_id  # or account_id property if you wrap it
+            acct_id = account._account_id
+            account_failed = False  # Track if this account has already logged an error
 
-            # For each balance in account.balances
             for bal in account.balances:
                 balance_type = bal.get("balanceType", "Unknown")
                 unique_id = f"{acct_id}_{balance_type}"
@@ -41,15 +37,23 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
                         account,
                         balance_type
                     )
-                    entities.append(sensor)
-                    new_sensors.append(sensor)
-                    existing_entity_ids.add(unique_id)
+                    try:
+                        entities.append(sensor)
+                        new_sensors.append(sensor)
+                        existing_entity_ids.add(unique_id)
+                    except NordigenAPIError as e:
+                        if not account_failed:
+                            _LOGGER.warning(
+                                "Failed to retrieve account data for account %s: Nordigen API update failed: %s",
+                                acct_id, e
+                            )
+                            account_failed = True  # Ensure only one log per account
+                        sensor._attr_available = False  # Mark sensor as unavailable
 
         if entities:
             _LOGGER.debug("Adding %d new sensors", len(entities))
             async_add_entities(entities)
 
-    # Call it once now to add any sensors from the initial data
     _schedule_add_entities()
 
 class NordigenBalanceSensor(SensorEntity):
@@ -64,18 +68,14 @@ class NordigenBalanceSensor(SensorEntity):
         self._attr_name = f"{account._account_id}_{balance_type}"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, account._account_id)},
-            name=account.name,    # from BankAccount
+            name=account.name,
             manufacturer="Nordigen",
-            model=f"Status: {account.status}",  # or just store it
-            configuration_url="https://ob.nordigen.com/",  # example
+            model=f"Status: {account.status}",
+            configuration_url="https://ob.nordigen.com/",
         )
 
     @property
     def native_unit_of_measurement(self):
-        """Return the currency for this balance."""
-        # The library sets account.balances[i]["currency"] for each balance,
-        # but if each balance might differ, you can store it in the coordinator data.
-        # We can try to find the matching balance:
         for bal in self._account.balances:
             if bal["balanceType"] == self._balance_type:
                 return bal.get("currency", "Unknown")
@@ -83,7 +83,6 @@ class NordigenBalanceSensor(SensorEntity):
 
     @property
     def native_value(self):
-        """Return the balance amount for this sensor."""
         for bal in self._account.balances:
             if bal["balanceType"] == self._balance_type:
                 try:
@@ -94,22 +93,18 @@ class NordigenBalanceSensor(SensorEntity):
 
     @property
     def should_poll(self):
-        """Disable polling, we use the DataUpdateCoordinator for updates."""
         return False
 
     def update(self):
-        """No-op: we do not poll inside the entity."""
         pass
 
     async def async_added_to_hass(self):
-        """When entity is added to hass, register for coordinator updates."""
         self.async_on_remove(
             self.coordinator.async_add_listener(self.async_write_ha_state)
         )
 
     @property
     def available(self):
-        """Entity availability based on coordinator status."""
         if self.coordinator.last_update_failed:
             return False
         return any(bal.get("balanceType") for bal in self._account.balances)

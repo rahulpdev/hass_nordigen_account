@@ -10,12 +10,18 @@ from .const import (
     CONF_SECRET_ID,
     CONF_SECRET_KEY,
     CONF_REQUISITION_ID,
-    CONF_REFRESH_TOKEN
+    CONF_REFRESH_TOKEN,
+    ERROR_INVALID_CREDENTIALS,
+    ERROR_INVALID_REQUISITION,
+    ERROR_API_FAILURE,
+    ERROR_EXPIRED_REQUISITION,
+    ERROR_NO_LINKED_ACCOUNTS
 )
 import nordigen_account
+from nordigen_account import NordigenAPIError
+from .nordigen_wrapper import NordigenWrapper
 
 _LOGGER = logging.getLogger(__name__)
-
 
 class NordigenAccountConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Nordigen Account."""
@@ -30,13 +36,9 @@ class NordigenAccountConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             secret_id = user_input[CONF_SECRET_ID].strip()
             secret_key = user_input[CONF_SECRET_KEY].strip()
             requisition_id = user_input[CONF_REQUISITION_ID].strip()
-            if user_input.get(CONF_REFRESH_TOKEN):
-                refresh_token = user_input.get(CONF_REFRESH_TOKEN, "").strip()
-            else:
-                refresh_token = None
+            refresh_token = user_input.get(CONF_REFRESH_TOKEN, "").strip()
 
             try:
-                # Call Nordigen client to create or refresh token
                 client, new_refresh_token = await self.hass.async_add_executor_job(
                     nordigen_account.create_nordigen_client,
                     secret_id,
@@ -44,7 +46,16 @@ class NordigenAccountConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     refresh_token
                 )
 
-                # Store user input and new refresh token in the config entry
+                # Validate requisition ID before creating the entry
+                wrapper = await self.hass.async_add_executor_job(
+                    NordigenWrapper,
+                    secret_id,
+                    secret_key,
+                    requisition_id,
+                    new_refresh_token
+                )
+                wrapper._initialize_manager()
+
                 data = {
                     CONF_SECRET_ID: secret_id,
                     CONF_SECRET_KEY: secret_key,
@@ -52,27 +63,27 @@ class NordigenAccountConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     CONF_REFRESH_TOKEN: new_refresh_token
                 }
 
-                # Set the secret_id as the unique ID to prevent duplicate integrations
                 await self.async_set_unique_id(secret_id)
                 self._abort_if_unique_id_configured()
 
-                # Create the config entry
-                return self.async_create_entry(title="Nordigen Account {requisition_id}", data=data)
+                return self.async_create_entry(title=f"Nordigen Account {requisition_id}", data=data)
 
-            except KeyError as e:
-                _LOGGER.error("Missing key in token response: %s", str(e))
-                errors["base"] = "invalid_token"
-            except RuntimeError as e:
-                _LOGGER.error("Nordigen API error: %s", str(e))
-                if "expired" in str(e).lower():
-                    errors["base"] = "requisition_expired"
+            except NordigenAPIError as e:
+                _LOGGER.error("Nordigen API error: %s", e)
+                if e.status_code == 401:
+                    errors["base"] = ERROR_INVALID_CREDENTIALS
+                elif e.status_code == 400:
+                    errors["base"] = ERROR_INVALID_REQUISITION
+                elif e.status_code == 410:
+                    errors["base"] = ERROR_NO_LINKED_ACCOUNTS
+                elif e.status_code == 428:
+                    errors["base"] = ERROR_EXPIRED_REQUISITION
                 else:
-                    errors["base"] = "api_error"
+                    errors["base"] = ERROR_API_FAILURE
             except Exception as e:
                 _LOGGER.exception("Unexpected error during setup: %s", str(e))
                 errors["base"] = "unknown_error"
 
-        # Show the input form again with error messages (if any)
         schema = vol.Schema(
             {
                 vol.Required(CONF_SECRET_ID): str,
@@ -89,7 +100,6 @@ class NordigenAccountConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Return the options flow handler."""
         return NordigenAccountOptionsFlow(config_entry)
 
-
 class NordigenAccountOptionsFlow(config_entries.OptionsFlow):
     """Handle updating config entry options for Nordigen Account."""
 
@@ -97,7 +107,6 @@ class NordigenAccountOptionsFlow(config_entries.OptionsFlow):
         self.config_entry = config_entry
 
     async def async_step_init(self, user_input=None):
-        """Manage the options flow (requisition_id or refresh_token update)."""
         if user_input is not None:
             data = dict(self.config_entry.data)
             data[CONF_REQUISITION_ID] = user_input[CONF_REQUISITION_ID].strip()

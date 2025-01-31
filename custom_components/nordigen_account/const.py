@@ -8,3 +8,10 @@ CONF_REFRESH_TOKEN = "refresh_token"
 
 # How often to poll the Nordigen API -> 4 times a day = every 6 hours
 UPDATE_INTERVAL_HOURS = 6
+
+# Nordigen API Error Constants
+ERROR_INVALID_CREDENTIALS = "invalid_credentials"
+ERROR_NO_LINKED_ACCOUNTS = "no_linked_accounts"
+ERROR_REQUISITION_EXPIRED = "requisition_expired"
+ERROR_API_FAILURE = "api_failure"
+ERROR_INVALID_REQUISITION = "invalid_requisition"
