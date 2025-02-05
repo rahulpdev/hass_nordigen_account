@@ -79,6 +79,8 @@ await coordinator.async_initialize(hass)  # Ensure async-safe initialization
 await coordinator.async_config_entry_first_refresh()
 
 # Coordinator dynamically adjusts update intervals when a 429 rate limit is encountered, preventing unnecessary retries.
+
+# Coordinator also fires an event `nordigen_requisition_expired` when a 428 Expired Requisition error occurs, allowing automations to trigger notifications.
 ```
 
 2. **Store the coordinator in Home Assistant memory:**
