@@ -61,10 +61,10 @@ class NordigenAccountConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 self._abort_if_unique_id_configured()
 
                 institution_id = wrapper.manager.institution_id
-                agreement = wrapper.manager.agreement
+                reference = wrapper.manager.reference
 
                 return self.async_create_entry(
-                    title=f"{institution_id} - {agreement}",
+                    title=f"{institution_id} - {reference}",
                     data=data
                 )
 

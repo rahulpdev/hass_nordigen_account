@@ -3,7 +3,7 @@
   "name": "Nordigen Account Integration",
   "documentation": "https://github.com/rahulpdev/hass_nordigen_account",
   "requirements": [
-    "nordigen_account==0.3.0"
+    "nordigen_account==0.3.1"
   ],
   "version": "0.0.1",
   "config_flow": true,
