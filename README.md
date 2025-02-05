@@ -79,11 +79,37 @@ await coordinator.async_initialize(hass)  # Ensure async-safe initialization
 await coordinator.async_config_entry_first_refresh()
 
 # Coordinator dynamically adjusts update intervals when a 429 rate limit is encountered, preventing unnecessary retries.
-
-# Coordinator also fires an event `nordigen_requisition_expired` when a 428 Expired Requisition error occurs, allowing automations to trigger notifications.
 ```
 
-2. **Store the coordinator in Home Assistant memory:**
+
+2. **Handle Expired Requisition Gracefully:**
+
+If your requisition ID expires, the integration fires a `nordigen_requisition_expired` event that you can use in an automation to receive notifications.
+
+##### Example Automation
+
+To send a notification when the requisition ID expires, add the following automation:
+
+```yaml
+alias: "Notify when Nordigen requisition expires"
+trigger:
+  - platform: event
+    event_type: nordigen_requisition_expired
+action:
+  - service: notify.mobile_app_your_phone
+    data:
+      title: "Nordigen Alert"
+      message: "{{ trigger.event.data.message }}"
+mode: single
+```
+
+This automation will:
+- Send a push notification to your mobile device when the requisition ID expires.
+- Create a persistent notification in Home Assistant with the same message.
+await coordinator.async_config_entry_first_refresh()
+
+
+3. **Store the coordinator in Home Assistant memory:**
 
 ```python
 hass.data[DOMAIN][entry.entry_id] = {
@@ -91,7 +117,7 @@ hass.data[DOMAIN][entry.entry_id] = {
 }
 ```
 
-3. **Handle Errors Gracefully:**
+4. **Handle Errors Gracefully:**
 
 ```python
 except NordigenAPIError as e:
@@ -99,7 +125,7 @@ except NordigenAPIError as e:
     return False
 ```
 
-4. **Forward sensor setup:**
+5. **Forward sensor setup:**
 
 ```python
 await hass.config_entries.async_forward_entry_setups(entry, ["sensor"])
