@@ -77,6 +77,8 @@ The `async_setup_entry` function is responsible for setting up the integration w
 coordinator = NordigenDataUpdateCoordinator(hass, entry)
 await coordinator.async_initialize(hass)  # Ensure async-safe initialization
 await coordinator.async_config_entry_first_refresh()
+
+# Coordinator dynamically adjusts update intervals when a 429 rate limit is encountered, preventing unnecessary retries.
 ```
 
 2. **Store the coordinator in Home Assistant memory:**

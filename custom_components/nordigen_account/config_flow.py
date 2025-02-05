@@ -60,7 +60,13 @@ class NordigenAccountConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 await self.async_set_unique_id(secret_id)
                 self._abort_if_unique_id_configured()
 
-                return self.async_create_entry(title=f"Nordigen Account {requisition_id}", data=data)
+                institution_id = wrapper.manager.institution_id
+                agreement = wrapper.manager.agreement
+
+                return self.async_create_entry(
+                    title=f"{institution_id} - {agreement}",
+                    data=data
+                )
 
             except NordigenAPIError as e:
                 _LOGGER.error("Nordigen API error: %s", e)
