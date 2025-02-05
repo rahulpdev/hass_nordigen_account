@@ -13,6 +13,7 @@ _LOGGER = logging.getLogger(__name__)
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback):
     """Set up Nordigen sensors from a config entry."""
+    _LOGGER.warning("Nordigen sensor setup is starting!")
     coordinator: NordigenDataUpdateCoordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
 
     new_sensors = []
