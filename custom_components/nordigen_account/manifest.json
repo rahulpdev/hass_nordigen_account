@@ -1,0 +1,17 @@
+{
+  "domain": "nordigen_account",
+  "name": "Nordigen Account Integration",
+  "documentation": "https://github.com/rahulpdev/hass_nordigen_account",
+  "requirements": [
+    "nordigen_account==0.3.0"
+  ],
+  "version": "0.0.1",
+  "config_flow": true,
+  "iot_class": "cloud_polling",
+  "codeowners": [
+    "@rahulpdev"
+  ],
+  "loggers": [
+    "nordigen_account"
+  ]
+}
