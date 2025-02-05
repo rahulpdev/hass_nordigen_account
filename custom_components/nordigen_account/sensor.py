@@ -22,6 +22,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
     def _schedule_add_entities():
         entities = []
         existing_entity_ids = {entity.unique_id for entity in new_sensors}
+        _LOGGER.warning("Nordigen coordinator data: %s", coordinator.data)
 
         for account in coordinator.data:
             _LOGGER.debug("Adding sensor for account: %s", account._account_id)
