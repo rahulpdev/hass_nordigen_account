@@ -67,16 +67,27 @@ class NordigenDataUpdateCoordinator(DataUpdateCoordinator):
                 return None  # Ensures HA does not retry immediately
 
             # Handle Expired Requisition
-            elif e.status_code == 200 and "expired" in str(e).lower():
+            elif e.status_code == 428:
+                message = "Your Nordigen requisition ID has expired. Please update it in the integration settings."
+
                 async_create(
                     self.hass,
-                    "Your Nordigen requisition ID has expired. Please update it in the integration settings.",
+                    message,
                     title="Nordigen Integration",
                     notification_id="nordigen_requisition_expired"
                 )
 
+                # Fire an event so Home Assistant automations can use the message
+                self.hass.bus.async_fire(
+                    "nordigen_requisition_expired",
+                    {
+                        "entry_id": self.entry.entry_id,
+                        "message": message
+                    }
+                )
+
             # Handle No Accounts Found
-            elif e.status_code == 200 and "no accounts found" in str(e).lower():
+            elif e.status_code == 410:
                 _LOGGER.warning("No accounts found for requisition ID. Ensure bank authorization is complete.")
 
             raise UpdateFailed(f"Nordigen API update failed: {e}")
