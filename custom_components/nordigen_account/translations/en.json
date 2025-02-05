@@ -15,14 +15,17 @@
     "error": {
       "auth": "Authentication failed. Check your Secret ID and Secret Key.",
       "invalid_requisition": "Invalid Requisition ID. Ensure the account is linked correctly.",
-      "api_error": "Error communicating with Nordigen API. Try again later."
+      "expired_requisition": "Your Nordigen requisition ID has expired. Please update it in the integration settings.",
+      "no_linked_accounts": "No accounts found for the given requisition ID. Ensure bank authorization is complete.",
+      "api_error": "An error occurred while communicating with the Nordigen API. Please check your credentials and try again later.",
+      "unknown_error": "An unexpected error occurred. Please check the logs for details."
     }
   },
   "options": {
     "step": {
       "init": {
         "title": "Nordigen Account Options",
-        "description": "Update your requisition ID or refresh token.",
+        "description": "Update your requisition ID or refresh token without reinstalling the integration.",
         "data": {
           "requisition_id": "Requisition ID",
           "refresh_token": "Refresh Token"
