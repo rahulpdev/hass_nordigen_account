@@ -20,9 +20,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
 
     @coordinator.async_add_listener
     def _schedule_add_entities():
+        _LOGGER.warning("Nordigen coordinator data: %s", coordinator.data)
         entities = []
         existing_entity_ids = {entity.unique_id for entity in new_sensors}
-        _LOGGER.warning("Nordigen coordinator data: %s", coordinator.data)
 
         for account in coordinator.data:
             _LOGGER.debug("Adding sensor for account: %s", account._account_id)
@@ -56,6 +56,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
         if entities:
             _LOGGER.debug("Adding %d new sensors", len(entities))
             async_add_entities(entities)
+
+    coordinator.async_add_listener(_schedule_add_entities)
 
     _schedule_add_entities()
 
