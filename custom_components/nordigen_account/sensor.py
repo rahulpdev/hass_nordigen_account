@@ -1,4 +1,5 @@
 import logging
+from typing import List, Optional
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -11,17 +12,27 @@ from .nordigen_wrapper import NordigenAPIError
 
 _LOGGER = logging.getLogger(__name__)
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback):
-    """Set up Nordigen sensors from a config entry."""
+async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
+    """
+    Set up Nordigen sensors from a config entry.
+
+    Args:
+        hass (HomeAssistant): The Home Assistant instance.
+        entry (ConfigEntry): The configuration entry for the integration.
+        async_add_entities (AddEntitiesCallback): Callback function to add entities to Home Assistant.
+    """
     _LOGGER.warning("Nordigen sensor setup is starting!")
     coordinator: NordigenDataUpdateCoordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
 
-    new_sensors = []
+    new_sensors: List[NordigenBalanceSensor] = []
 
     @coordinator.async_add_listener
-    def _schedule_add_entities():
+    def _schedule_add_entities() -> None:
+        """
+        Process and register sensors based on retrieved Nordigen account data.
+        """
         _LOGGER.warning("Nordigen coordinator data: %s", coordinator.data)
-        entities = []
+        entities: List[NordigenBalanceSensor] = []
         existing_entity_ids = {entity.unique_id for entity in new_sensors}
 
         for account in coordinator.data:
@@ -30,8 +41,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
             account_failed = False  # Track if this account has already logged an error
 
             for bal in account.balances:
-                balance_type = bal.get("balanceType", "Unknown")
-                unique_id = f"{acct_id}_{balance_type}"
+                balance_type: str = bal.get("balanceType", "Unknown")
+                unique_id: str = f"{acct_id}_{balance_type}"
 
                 if unique_id not in existing_entity_ids:
                     sensor = NordigenBalanceSensor(
@@ -62,15 +73,23 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
     _schedule_add_entities()
 
 class NordigenBalanceSensor(SensorEntity):
-    """Sensor for each Nordigen bank account balance."""
+    """
+    Represents a Nordigen bank account balance as a sensor in Home Assistant.
 
-    def __init__(self, coordinator, config_entry_id, account, balance_type):
+    Attributes:
+        coordinator (NordigenDataUpdateCoordinator): Data update coordinator instance.
+        _config_entry_id (str): The configuration entry ID associated with this sensor.
+        _account: The bank account object associated with this sensor.
+        _balance_type (str): The type of balance being tracked (e.g., 'closingBooked').
+    """
+
+    def __init__(self, coordinator: NordigenDataUpdateCoordinator, config_entry_id: str, account, balance_type: str) -> None:
         self.coordinator = coordinator
         self._config_entry_id = config_entry_id
         self._account = account
         self._balance_type = balance_type
-        self._attr_unique_id = f"{account._account_id}_{balance_type}"
-        self._attr_name = f"{account._account_id}_{balance_type}"
+        self._attr_unique_id: str = f"{account._account_id}_{balance_type}"
+        self._attr_name: str = f"{account._account_id}_{balance_type}"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, account._account_id)},
             name=account.name,
@@ -80,14 +99,23 @@ class NordigenBalanceSensor(SensorEntity):
         )
 
     @property
-    def native_unit_of_measurement(self):
+    def native_unit_of_measurement(self) -> Optional[str]:
+        """
+        Return the currency as the unit of measurement.
+        """
         for bal in self._account.balances:
             if bal["balanceType"] == self._balance_type:
                 return bal.get("currency", "Unknown")
         return None
 
     @property
-    def native_value(self):
+    def native_value(self) -> float:
+        """
+        Retrieve the current balance for the associated bank account.
+
+        Returns:
+            float: The current balance amount.
+        """
         for bal in self._account.balances:
             if bal["balanceType"] == self._balance_type:
                 try:
@@ -97,19 +125,25 @@ class NordigenBalanceSensor(SensorEntity):
         return 0.0
 
     @property
-    def should_poll(self):
+    def should_poll(self) -> bool:
         return False
 
     def update(self):
         pass
 
-    async def async_added_to_hass(self):
+    async def async_added_to_hass(self) -> None:
+        """
+        Handle actions when the sensor entity is added to Home Assistant.
+        """
         self.async_on_remove(
             self.coordinator.async_add_listener(self.async_write_ha_state)
         )
 
     @property
-    def available(self):
+    def available(self) -> bool:
+        """
+        Determine if the entity should be marked as available.
+        """
         if self.coordinator.last_update_failed:
             return False
         return any(bal.get("balanceType") for bal in self._account.balances)

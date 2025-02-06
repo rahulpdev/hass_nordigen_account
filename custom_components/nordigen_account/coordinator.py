@@ -1,5 +1,6 @@
 import logging
 from datetime import timedelta
+from typing import Optional, Dict, Any
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
@@ -11,27 +12,40 @@ from .nordigen_wrapper import NordigenWrapper, NordigenAPIError
 
 _LOGGER = logging.getLogger(__name__)
 
-
 class NordigenDataUpdateCoordinator(DataUpdateCoordinator):
-    """Coordinator to fetch data from Nordigen and store it."""
+    """Coordinator for fetching and managing Nordigen account data in Home Assistant."""
 
-    def __init__(self, hass: HomeAssistant, entry) -> None:
-        """Initialize coordinator and set up defaults."""
+    def __init__(self, hass: HomeAssistant, entry: Dict[str, Any]) -> None:
+        """
+        Initialize the coordinator and set up defaults.
+
+        Args:
+            hass (HomeAssistant): The Home Assistant instance.
+            entry (Dict[str, Any]): The configuration entry containing user credentials and requisition data.
+        """
         super().__init__(
             hass,
             _LOGGER,
             name=DOMAIN,
             update_interval=timedelta(hours=UPDATE_INTERVAL_HOURS),
         )
-        self.entry = entry  # Store entry data for async_initialize()
-        self.wrapper = None  # Initialize as None
+        self.entry: Dict[str, Any] = entry  # Store entry data for async_initialize()
+        self.wrapper: Optional[NordigenWrapper] = None  # Initialize as None
 
-    async def async_initialize(self, hass: HomeAssistant):
-        """Initialize the wrapper asynchronously."""
-        secret_id = self.entry.data["secret_id"]
-        secret_key = self.entry.data["secret_key"]
-        requisition_id = self.entry.data["requisition_id"]
-        refresh_token = self.entry.data["refresh_token"]
+    async def async_initialize(self, hass: HomeAssistant) -> None:
+        """
+        Initialize the Nordigen API wrapper asynchronously.
+
+        Args:
+            hass (HomeAssistant): The Home Assistant instance.
+
+        Raises:
+            NordigenAPIError: If the API authentication or requisition retrieval fails.
+        """
+        secret_id: str = self.entry["secret_id"]
+        secret_key: str = self.entry["secret_key"]
+        requisition_id: str = self.entry["requisition_id"]
+        refresh_token: Optional[str] = self.entry.get("refresh_token")
 
         self.wrapper = await hass.async_add_executor_job(
             NordigenWrapper,
@@ -41,7 +55,19 @@ class NordigenDataUpdateCoordinator(DataUpdateCoordinator):
             refresh_token
         )
 
-    async def _async_update_data(self):
+    async def _async_update_data(self) -> Optional[Dict[str, Any]]:
+        """
+        Fetch updated account data from Nordigen.
+
+        This method retrieves account balances and handles rate limits, expired requisitions,
+        and missing accounts. It schedules retries in case of temporary API failures.
+
+        Returns:
+            Optional[Dict[str, Any]]: A dictionary containing updated account data, or None if an error occurs.
+
+        Raises:
+            UpdateFailed: If there is an issue retrieving data from the Nordigen API.
+        """
         _LOGGER.debug("Nordigen is retrieving accounts!")
         try:
             await self.hass.async_add_executor_job(self.wrapper.update_all_accounts)

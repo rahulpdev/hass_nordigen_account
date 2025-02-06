@@ -21,15 +21,22 @@ from .nordigen_wrapper import NordigenAPIError, NordigenWrapper
 
 _LOGGER = logging.getLogger(__name__)
 
-
 class NordigenAccountConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Nordigen Account."""
 
-    VERSION = 1
+    VERSION: int = 1
 
-    async def async_step_user(self, user_input=None):
-        """Handle the initial step of user input."""
-        errors = {}
+    async def async_step_user(self, user_input: dict | None = None) -> config_entries.FlowResult:
+        """Handle the user input step in the configuration flow.
+
+        Args:
+            user_input (dict, optional): Dictionary containing user-provided configuration data.
+                Expected keys are CONF_SECRET_ID, CONF_SECRET_KEY, CONF_REQUISITION_ID, and CONF_REFRESH_TOKEN.
+
+        Returns:
+            Config entry or an error message prompting the user to correct input issues.
+        """
+        errors: dict[str, str] = {}
 
         if user_input is not None:
             secret_id = user_input[CONF_SECRET_ID].strip()
@@ -96,18 +103,34 @@ class NordigenAccountConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     @staticmethod
     @callback
-    def async_get_options_flow(config_entry):
-        """Return the options flow handler."""
+    def async_get_options_flow(config_entry: config_entries.ConfigEntry) -> config_entries.OptionsFlow:
+        """Return the options flow handler for updating integration settings.
+
+        Args:
+            config_entry (ConfigEntry): The configuration entry for this integration.
+
+        Returns:
+            NordigenAccountOptionsFlow: The handler for managing configuration updates.
+        """
         return NordigenAccountOptionsFlow(config_entry)
 
 
 class NordigenAccountOptionsFlow(config_entries.OptionsFlow):
-    """Handle updating config entry options for Nordigen Account."""
+    """Manage the options flow for updating Nordigen Account configuration"""
 
     def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
-        pass
+        self.config_entry: config_entries.ConfigEntry = config_entry
 
-    async def async_step_init(self, user_input=None):
+    async def async_step_init(self, user_input: dict | None = None) -> config_entries.FlowResult:
+        """Handle the initialization step of the options flow.
+
+        Args:
+            user_input (dict, optional): Dictionary containing updated configuration settings.
+                Expected keys are CONF_REQUISITION_ID and CONF_REFRESH_TOKEN.
+
+        Returns:
+            Config entry update or a form prompting the user for correct input.
+        """
         if user_input is not None:
             data = dict(self.config_entry.data)
             data[CONF_REQUISITION_ID] = user_input[CONF_REQUISITION_ID].strip()
