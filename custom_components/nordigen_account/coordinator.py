@@ -42,6 +42,7 @@ class NordigenDataUpdateCoordinator(DataUpdateCoordinator):
         )
 
     async def _async_update_data(self):
+        _LOGGER.debug("Nordigen is retrieving accounts!")
         try:
             await self.hass.async_add_executor_job(self.wrapper.update_all_accounts)
             _LOGGER.debug("Nordigen retrieved accounts: %s", self.wrapper.accounts)
