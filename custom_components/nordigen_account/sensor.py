@@ -32,16 +32,24 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
         Process and register sensors based on retrieved Nordigen account data.
         """
         _LOGGER.warning("Nordigen coordinator data: %s", coordinator.data)
+
+        if not coordinator.data:  # <-- Prevents execution if no data is available
+            _LOGGER.warning("No account data available. Skipping sensor setup.")
+            return
+
+        if not isinstance(coordinator.data, list):
+            _LOGGER.error("Unexpected data format: %s", type(coordinator.data))
+            return
+
         entities: List[NordigenBalanceSensor] = []
         existing_entity_ids = {entity.unique_id for entity in new_sensors}
 
         for account in coordinator.data:
             _LOGGER.debug("Adding sensor for account: %s", account._account_id)
             acct_id = account._account_id
-            account_failed = False  # Track if this account has already logged an error
 
             for bal in account.balances:
-                balance_type: str = bal.get("balanceType", "Unknown")
+                balance_type: str = bal["balanceType"]
                 unique_id: str = f"{acct_id}_{balance_type}"
 
                 if unique_id not in existing_entity_ids:
@@ -51,18 +59,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
                         account,
                         balance_type
                     )
-                    try:
-                        entities.append(sensor)
-                        new_sensors.append(sensor)
-                        existing_entity_ids.add(unique_id)
-                    except NordigenAPIError as e:
-                        if not account_failed:
-                            _LOGGER.warning(
-                                "Failed to retrieve account data for account %s: Nordigen API update failed: %s",
-                                acct_id, e
-                            )
-                            account_failed = True  # Ensure only one log per account
-                        sensor._attr_available = False  # Mark sensor as unavailable
+                    entities.append(sensor)
+                    new_sensors.append(sensor)
+                    existing_entity_ids.add(unique_id)
 
         if entities:
             _LOGGER.debug("Adding %d new sensors", len(entities))
@@ -70,6 +69,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
 
     coordinator.async_add_listener(_schedule_add_entities)
 
+    # Ensure data is fetched before attempting entity creation
+    await coordinator.async_config_entry_first_refresh()
     _schedule_add_entities()
 
 class NordigenBalanceSensor(SensorEntity):
@@ -83,6 +84,9 @@ class NordigenBalanceSensor(SensorEntity):
         _balance_type (str): The type of balance being tracked (e.g., 'closingBooked').
     """
 
+    _attr_device_class = "monetary"
+    _attr_state_class = "measurement"
+
     def __init__(self, coordinator: NordigenDataUpdateCoordinator, config_entry_id: str, account, balance_type: str) -> None:
         self.coordinator = coordinator
         self._config_entry_id = config_entry_id
@@ -90,6 +94,7 @@ class NordigenBalanceSensor(SensorEntity):
         self._balance_type = balance_type
         self._attr_unique_id: str = f"{account._account_id}_{balance_type}"
         self._attr_name: str = f"{account._account_id}_{balance_type}"
+        self._attr_available: bool = True
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, account._account_id)},
             name=account.name,
@@ -105,23 +110,34 @@ class NordigenBalanceSensor(SensorEntity):
         """
         for bal in self._account.balances:
             if bal["balanceType"] == self._balance_type:
-                return bal.get("currency", "Unknown")
+                currency = bal["currency"]
+                if currency:
+                    return currency
+
+        self._attr_available = False
         return None
 
     @property
-    def native_value(self) -> float:
+    def native_value(self) -> Optional[float]:
         """
         Retrieve the current balance for the associated bank account.
 
         Returns:
             float: The current balance amount.
         """
+        amount: Optional[str] = None
+
         for bal in self._account.balances:
             if bal["balanceType"] == self._balance_type:
-                try:
-                    return float(bal.get("amount", 0.0))
-                except ValueError:
+                amount = bal["amount"]
+                if amount is None or amount == "":
+                    self._attr_available = False
                     return 0.0
+
+            self._attr_available = True
+            return float(amount)
+
+        self._attr_available = False
         return 0.0
 
     @property
@@ -143,7 +159,10 @@ class NordigenBalanceSensor(SensorEntity):
     def available(self) -> bool:
         """
         Determine if the entity should be marked as available.
+
+        Returns:
+            bool: True if the sensor should be considered available, False otherwise.
         """
         if self.coordinator.last_update_failed:
             return False
-        return any(bal.get("balanceType") for bal in self._account.balances)
+        return any(bal["balanceType"] for bal in self._account.balances)

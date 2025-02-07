@@ -1,11 +1,12 @@
 import logging
 from datetime import timedelta
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.helpers.event import async_call_later
 from homeassistant.components.persistent_notification import async_create
+from nordigen_account import BankAccount
 
 from .const import DOMAIN, UPDATE_INTERVAL_HOURS
 from .nordigen_wrapper import NordigenWrapper, NordigenAPIError
@@ -30,6 +31,10 @@ class NordigenDataUpdateCoordinator(DataUpdateCoordinator):
             update_interval=timedelta(hours=UPDATE_INTERVAL_HOURS),
         )
         self.entry: Dict[str, Any] = entry  # Store entry data for async_initialize()
+
+        # Debug log to verify the actual type of self.entry
+        _LOGGER.debug("Type of self.entry: %s", type(self.entry))
+
         self.wrapper: Optional[NordigenWrapper] = None  # Initialize as None
 
     async def async_initialize(self, hass: HomeAssistant) -> None:
@@ -55,7 +60,7 @@ class NordigenDataUpdateCoordinator(DataUpdateCoordinator):
             refresh_token
         )
 
-    async def _async_update_data(self) -> Optional[Dict[str, Any]]:
+    async def _async_update_data(self) -> list[BankAccount] | None:
         """
         Fetch updated account data from Nordigen.
 
@@ -69,10 +74,15 @@ class NordigenDataUpdateCoordinator(DataUpdateCoordinator):
             UpdateFailed: If there is an issue retrieving data from the Nordigen API.
         """
         _LOGGER.debug("Nordigen is retrieving accounts!")
+
+        # Debug log for self.entry type
+        _LOGGER.debug("Type of self.entry inside _async_update_data: %s", type(self.entry))
+
         try:
             await self.hass.async_add_executor_job(self.wrapper.update_all_accounts)
             _LOGGER.debug("Nordigen retrieved accounts: %s", self.wrapper.accounts)
-            return self.wrapper.accounts
+            self.data = self.wrapper.accounts
+            return self.data
 
         except NordigenAPIError as e:
             _LOGGER.warning("Nordigen API issue encountered: %s", e)
@@ -103,6 +113,10 @@ class NordigenDataUpdateCoordinator(DataUpdateCoordinator):
                     title="Nordigen Integration",
                     notification_id="nordigen_requisition_expired"
                 )
+
+                # Debug log before firing the event
+                _LOGGER.debug("Checking self.entry before async_fire: %s", self.entry)
+                _LOGGER.debug("Type of self.entry before async_fire: %s", type(self.entry))
 
                 # Fire an event so Home Assistant automations can use the message
                 self.hass.bus.async_fire(
