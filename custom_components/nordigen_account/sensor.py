@@ -12,6 +12,7 @@ from .nordigen_wrapper import NordigenAPIError
 
 _LOGGER = logging.getLogger(__name__)
 
+
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
     """
     Set up Nordigen sensors from a config entry.
@@ -74,6 +75,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
     await coordinator.async_config_entry_first_refresh()
     _schedule_add_entities()
 
+
 class NordigenBalanceSensor(SensorEntity):
     """
     Represents a Nordigen bank account balance as a sensor in Home Assistant.
@@ -126,19 +128,30 @@ class NordigenBalanceSensor(SensorEntity):
         Returns:
             float: The current balance amount.
         """
-        amount: Optional[str] = None
-
         for bal in self._account.balances:
             if bal["balanceType"] == self._balance_type:
-                amount = bal["amount"]
+                amount = bal.get("amount")
+
+                # Ensure amount is valid
                 if amount is None or amount == "":
-                    self._attr_available = False
+                    _LOGGER.warning(
+                        "Balance amount for %s is None or empty, setting to 0.0",
+                        self._attr_unique_id
+                    )
+                    self._attr_available = False  # Mark entity as unavailable
+                    return 0.0  # Prevent TypeError
+
+                try:
+                    return float(amount)
+                except ValueError:
+                    _LOGGER.error(
+                        "Invalid amount format for %s: %s",
+                        self._attr_unique_id,
+                        amount
+                    )
                     return 0.0
 
-            self._attr_available = True
-            return float(amount)
-
-        self._attr_available = False
+        self._attr_available = False  # Mark entity as unavailable if no valid balance found
         return 0.0
 
     @property
