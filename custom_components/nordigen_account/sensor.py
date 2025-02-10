@@ -34,6 +34,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
         """
         _LOGGER.warning("Nordigen coordinator data: %s", coordinator.data)
 
+        if coordinator.data is None:
+            _LOGGER.warning("No account data available. Using cached values if available.")
+            return
+
         if not coordinator.data:  # <-- Prevents execution if no data is available
             _LOGGER.warning("No account data available. Skipping sensor setup.")
             return
