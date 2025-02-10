@@ -67,7 +67,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
             _LOGGER.debug("Adding %d new sensors", len(entities))
             async_add_entities(entities)
 
-    coordinator.async_add_listener(_schedule_add_entities)
+    if _schedule_add_entities not in coordinator._listeners:
+        coordinator.async_add_listener(_schedule_add_entities)
 
     # Ensure data is fetched before attempting entity creation
     await coordinator.async_config_entry_first_refresh()
@@ -163,6 +164,6 @@ class NordigenBalanceSensor(SensorEntity):
         Returns:
             bool: True if the sensor should be considered available, False otherwise.
         """
-        if self.coordinator.last_update_failed:
+        if not self.coordinator.last_update_success:
             return False
         return any(bal["balanceType"] for bal in self._account.balances)

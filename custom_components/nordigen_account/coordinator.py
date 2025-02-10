@@ -93,7 +93,13 @@ class NordigenDataUpdateCoordinator(DataUpdateCoordinator):
         try:
             await self.hass.async_add_executor_job(self.wrapper.update_all_accounts)
             _LOGGER.debug("Nordigen retrieved accounts: %s", self.wrapper.accounts)
+
+            if not self.wrapper.accounts:
+                _LOGGER.warning("No accounts found in Nordigen API response.")
+                raise UpdateFailed("No accounts found. Ensure bank authorization is complete.")
+
             self.data = self.wrapper.accounts
+            _LOGGER.debug("Nordigen updated coordinator data: %s", self.data)
             return self.data
 
         except NordigenAPIError as e:
