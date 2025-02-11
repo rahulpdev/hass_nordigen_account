@@ -92,7 +92,7 @@ class NordigenBalanceSensor(SensorEntity):
     """
 
     _attr_device_class = "monetary"
-    _attr_state_class = "measurement"
+    _attr_state_class = "total"
 
     def __init__(self, coordinator: NordigenDataUpdateCoordinator, config_entry_id: str, account, balance_type: str) -> None:
         self.coordinator = coordinator
