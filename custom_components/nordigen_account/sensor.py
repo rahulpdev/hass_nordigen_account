@@ -146,6 +146,14 @@ class NordigenBalanceSensor(SensorEntity):
                     return 0.0  # Prevent TypeError
 
                 try:
+                    balance_value = float(amount)
+                    _LOGGER.info(
+                        "Sensor updated: entity_id=%s, account_id=%s, balance_type=%s, balance_value=%.2f",
+                        self.entity_id,
+                        self._account._account_id,
+                        self._balance_type,
+                        balance_value
+                    )
                     return float(amount)
                 except ValueError:
                     _LOGGER.error(
