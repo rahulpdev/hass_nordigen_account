@@ -13,7 +13,9 @@ from .nordigen_wrapper import BankAccount, NordigenAPIError
 _LOGGER = logging.getLogger(__name__)
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
+async def async_setup_entry(
+        hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
+) -> None:
     """
     Set up Nordigen sensors from a config entry.
 
@@ -72,8 +74,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
             _LOGGER.warning("Adding %d new sensors", len(entities))
             async_add_entities(entities)
 
-    if _schedule_add_entities not in coordinator._listeners:
-        coordinator.async_add_listener(_schedule_add_entities)
+    coordinator.async_add_listener(_schedule_add_entities)
 
     # Ensure data is fetched before attempting entity creation
     await coordinator.async_config_entry_first_refresh()
@@ -94,16 +95,18 @@ class NordigenBalanceSensor(SensorEntity):
     _attr_device_class = "monetary"
     _attr_state_class = "total"
 
-    def __init__(self, coordinator: NordigenDataUpdateCoordinator, config_entry_id: str, account: BankAccount, balance_type: str) -> None:
+    def __init__(
+            self, coordinator: NordigenDataUpdateCoordinator, config_entry_id: str, account: BankAccount, balance_type: str
+    ) -> None:
         self.coordinator = coordinator
         self._config_entry_id = config_entry_id
         self._account = account
         self._balance_type = balance_type
-        self._attr_unique_id: str = f"{account._account_id}_{balance_type}"
-        self._attr_name: str = f"{account._account_id}_{balance_type}"
+        self._attr_unique_id: str = f"{account.name}_{balance_type}_{config_entry_id}"
+        self._attr_name: str = f"{account.name}_{balance_type}"
         self._attr_available: bool = True
         self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, account._account_id)},
+            identifiers={(DOMAIN, config_entry_id, account.name)},
             name=account.name,
             manufacturer="Nordigen",
             model=f"Status: {account.status}",

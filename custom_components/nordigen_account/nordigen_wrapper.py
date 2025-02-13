@@ -4,7 +4,9 @@ from nordigen_account import create_nordigen_client, BankAccountManager, Nordige
 class NordigenWrapper:
     """A wrapper around BankAccountManager to manage and update bank accounts."""
 
-    def __init__(self, secret_id: str, secret_key: str, requisition_id: str, refresh_token: Optional[str] = None) -> None:
+    def __init__(
+            self, secret_id: str, secret_key: str, requisition_id: str, refresh_token: Optional[str] = None
+    ) -> None:
         """
         Initialize the NordigenWrapper.
 
@@ -80,7 +82,9 @@ class NordigenWrapper:
 
     @property
     def requisition_id(self) -> str:
-        """Get the requisition ID."""
+        """
+        Get the requisition ID.
+        """
         return self._requisition_id
 
     @requisition_id.setter
