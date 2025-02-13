@@ -8,7 +8,7 @@ from homeassistant.helpers.entity import DeviceInfo
 
 from .const import DOMAIN
 from .coordinator import NordigenDataUpdateCoordinator
-from .nordigen_wrapper import NordigenAPIError
+from .nordigen_wrapper import BankAccount, NordigenAPIError
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -22,7 +22,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
         entry (ConfigEntry): The configuration entry for the integration.
         async_add_entities (AddEntitiesCallback): Callback function to add entities to Home Assistant.
     """
-    _LOGGER.warning("Nordigen sensor setup is starting!")
+    _LOGGER.warning("Nordigen sensor setup is starting!") # REMOVE THIS LINE
     coordinator: NordigenDataUpdateCoordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
 
     new_sensors: List[NordigenBalanceSensor] = []
@@ -32,14 +32,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
         """
         Process and register sensors based on retrieved Nordigen account data.
         """
-        _LOGGER.warning("Nordigen coordinator data: %s", coordinator.data)
+        _LOGGER.warning("Nordigen coordinator data: %s", coordinator.data) # REMOVE THIS LINE
 
         if coordinator.data is None:
-            _LOGGER.warning("No account data available. Using cached values if available.")
+            _LOGGER.warning("No account data available. Using cached values if available.") # CHANGE TO DEBUG
             return
 
         if not coordinator.data:  # <-- Prevents execution if no data is available
-            _LOGGER.warning("No account data available. Skipping sensor setup.")
+            _LOGGER.warning("No account data available. Skipping sensor setup.") # CHANGE TO DEBUG
             return
 
         if not isinstance(coordinator.data, list):
@@ -50,7 +50,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
         existing_entity_ids = {entity.unique_id for entity in new_sensors}
 
         for account in coordinator.data:
-            _LOGGER.debug("Adding sensor for account: %s", account._account_id)
+            _LOGGER.warning("Adding sensor for account: %s", account._account_id)
             acct_id = account._account_id
 
             for bal in account.balances:
@@ -69,7 +69,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
                     existing_entity_ids.add(unique_id)
 
         if entities:
-            _LOGGER.debug("Adding %d new sensors", len(entities))
+            _LOGGER.warning("Adding %d new sensors", len(entities))
             async_add_entities(entities)
 
     if _schedule_add_entities not in coordinator._listeners:
@@ -94,7 +94,7 @@ class NordigenBalanceSensor(SensorEntity):
     _attr_device_class = "monetary"
     _attr_state_class = "total"
 
-    def __init__(self, coordinator: NordigenDataUpdateCoordinator, config_entry_id: str, account, balance_type: str) -> None:
+    def __init__(self, coordinator: NordigenDataUpdateCoordinator, config_entry_id: str, account: BankAccount, balance_type: str) -> None:
         self.coordinator = coordinator
         self._config_entry_id = config_entry_id
         self._account = account
@@ -146,14 +146,14 @@ class NordigenBalanceSensor(SensorEntity):
                     return 0.0  # Prevent TypeError
 
                 try:
-                    balance_value = float(amount)
-                    _LOGGER.info(
+                    balance_value = float(amount) # REMOVE THIS LINE
+                    _LOGGER.warning(
                         "Sensor updated: entity_id=%s, account_id=%s, balance_type=%s, balance_value=%.2f",
                         self.entity_id,
                         self._account._account_id,
                         self._balance_type,
                         balance_value
-                    )
+                    ) # REMOVE THIS LINE
                     return float(amount)
                 except ValueError:
                     _LOGGER.error(
@@ -171,6 +171,9 @@ class NordigenBalanceSensor(SensorEntity):
         return False
 
     def update(self):
+        """
+        Polling is disabled; state updates are handled via the coordinator.
+        """
         pass
 
     async def async_added_to_hass(self) -> None:

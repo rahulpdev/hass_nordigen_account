@@ -35,7 +35,7 @@ class NordigenDataUpdateCoordinator(DataUpdateCoordinator):
         self.entry: ConfigEntry = entry
 
         # Debug log to verify the actual type of self.entry
-        _LOGGER.debug("Type of self.entry: %s", type(self.entry))
+        _LOGGER.warning("Type of self.entry: %s", type(self.entry))
 
         self.wrapper: Optional[NordigenWrapper] = None  # Initialize as None
 
@@ -54,7 +54,7 @@ class NordigenDataUpdateCoordinator(DataUpdateCoordinator):
         requisition_id: str = self.entry.data["requisition_id"]
         refresh_token: Optional[str] = self.entry.data.get("refresh_token")
 
-        _LOGGER.debug("Refresh Token: %s", refresh_token)
+        _LOGGER.warning("Refresh Token: %s", refresh_token)
 
         self.wrapper = await hass.async_add_executor_job(
             NordigenWrapper,
@@ -67,7 +67,7 @@ class NordigenDataUpdateCoordinator(DataUpdateCoordinator):
         # Ensure the refresh token is updated in Home Assistant storage if changed
         new_refresh_token = self.wrapper.refresh_token
         if new_refresh_token and new_refresh_token != refresh_token:
-            _LOGGER.debug("Updating stored refresh token.")
+            _LOGGER.warning("Updating stored refresh token.")
             hass.config_entries.async_update_entry(
                 self.entry, data={**self.entry.data, "refresh_token": new_refresh_token}
             )
@@ -85,21 +85,21 @@ class NordigenDataUpdateCoordinator(DataUpdateCoordinator):
         Raises:
             UpdateFailed: If there is an issue retrieving data from the Nordigen API.
         """
-        _LOGGER.debug("Nordigen is retrieving accounts!")
+        _LOGGER.warning("Nordigen is retrieving accounts!")
 
         # Debug log for self.entry type
-        _LOGGER.debug("Type of self.entry inside _async_update_data: %s", type(self.entry))
+        _LOGGER.warning("Type of self.entry inside _async_update_data: %s", type(self.entry))
 
         try:
             await self.hass.async_add_executor_job(self.wrapper.update_all_accounts)
-            _LOGGER.debug("Nordigen retrieved accounts: %s", self.wrapper.accounts)
+            _LOGGER.warning("Nordigen retrieved accounts: %s", self.wrapper.accounts)
 
             if not self.wrapper.accounts:
                 _LOGGER.warning("No accounts found in Nordigen API response.")
                 raise UpdateFailed("No accounts found. Ensure bank authorization is complete.")
 
             self.data = self.wrapper.accounts
-            _LOGGER.debug("Nordigen updated coordinator data: %s", self.data)
+            _LOGGER.warning("Nordigen updated coordinator data: %s", self.data)
             return self.data
 
         except NordigenAPIError as e:
@@ -112,7 +112,7 @@ class NordigenDataUpdateCoordinator(DataUpdateCoordinator):
                 try:
                     await self.hass.async_add_executor_job(self.wrapper.refresh_access_token)
                     new_refresh_token = self.wrapper.refresh_token
-                    _LOGGER.debug("New refresh token obtained: %s", new_refresh_token)
+                    _LOGGER.warning("New refresh token obtained: %s", new_refresh_token)
 
                     # Update stored token
                     self.hass.config_entries.async_update_entry(
@@ -156,8 +156,8 @@ class NordigenDataUpdateCoordinator(DataUpdateCoordinator):
                 )
 
                 # Debug log before firing the event
-                _LOGGER.debug("Checking self.entry before async_fire: %s", self.entry.data)
-                _LOGGER.debug("Type of self.entry before async_fire: %s", type(self.entry))
+                _LOGGER.warning("Checking self.entry before async_fire: %s", self.entry.data)
+                _LOGGER.warning("Type of self.entry before async_fire: %s", type(self.entry))
 
                 # Fire an event so Home Assistant automations can use the message
                 self.hass.bus.async_fire(
